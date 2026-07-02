@@ -3,3 +3,6 @@ python3 upload_test_data_from_file.py --dataset-name "SME Test Set" --input-file
 
 Run evaluation command:
 python3 run_eval_from_dataset.py --dataset-name "SME Test Set" --run-name "SME Eval Run"
+
+Run full test on the dataset command:
+python3 run_eval_fixed.py --csv SME-TestSet.csv --run_name "SME Eval Run"
