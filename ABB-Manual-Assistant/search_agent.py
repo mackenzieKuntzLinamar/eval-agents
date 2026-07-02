@@ -51,7 +51,7 @@ class SearchAgent:
                             - If no relevant information is found, return an empty list [].
                             """,
             model=agents.OpenAIChatCompletionsModel(
-                model="gemini-2.5-flash-lite-preview-06-17", openai_client=self.client
+                model="gemini-2.5-flash", openai_client=self.client
             ),
             model_settings=agents.ModelSettings(tool_choice="required", temperature=0),
             tools=[self.knowledge_tool],
