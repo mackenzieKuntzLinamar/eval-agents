@@ -30,21 +30,17 @@ class Orchestrator:
         self.main_agent = agents.Agent(
             name="Orchestrator Agent",
             instructions="""
-                            You are a helpful assistant and organizer.
-                            Answer only the question asked, as briefly as possible. Prefer the manual's exact wording over rephrasing. Do not restate background or add sections.
-                            Each claim must be traceable to a retrieved excerpt. If no excerpt supports a statement, omit it.
-                            If nothing relevant is found, say so — do not use outside knowledge
-                            Always present the search agent's findings at the bottom of your output inside a collapseable section.
-                            Do not add Consequences, Prevention, Safety, or best-practice sections, and do not offer to create a work order, unless the user asked or the search results contain it.
-                            Do not add causes, steps, or facts that aren't in the search results, and don't generalize beyond them.
-
-                            If the user asks you to create a workorder, then call the workorder_agent.
-                            """,
+                You are a helpful assistant and organizer.
+                If nothing relevant is found, say so — do not use outside knowledge
+                Always present the search agent's findings at the bottom of your output inside a collapseable section.
+                Do not add causes, steps, or facts that aren't in the search results, and don't generalize beyond them.
+                If the user asks you to create a workorder, then call the workorder_agent.
+            """,
             model=agents.OpenAIChatCompletionsModel(model="gemini-2.5-pro", openai_client=self.client),
             model_settings=agents.ModelSettings(tool_choice="required", temperature=0.2),
             tools=[self.search_agent_tool, self.workorder_agent_tool],
         )
-    # removed -> If the search agent doesn't find anything, use your own knowledge.
+
     async def run(self, prompt: str, history) -> str:
         context = ""
 
