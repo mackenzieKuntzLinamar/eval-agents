@@ -7,7 +7,6 @@ from typing import Any
 import agents
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
-
 from search_tool import VertexSearchTool
 
 
@@ -27,8 +26,7 @@ class SearchAgent:
             self.search_knowledgebase,
             name_override="knowledge_search",
             description_override=(
-                "Searches the ABB robot manual vector database for the most "
-                "relevant technical sections."
+                "Searches the ABB robot manual vector database for the most relevant technical sections."
             ),
         )
 
@@ -126,18 +124,14 @@ Output Format:
                 flush=True,
             )
 
-            resolved_result = await SearchAgent._resolve_knowledge_result(
-                raw_result
-            )
+            resolved_result = await SearchAgent._resolve_knowledge_result(raw_result)
 
             print(
-                f"[SEARCH] Resolved result type: "
-                f"{type(resolved_result).__name__}",
+                f"[SEARCH] Resolved result type: {type(resolved_result).__name__}",
                 flush=True,
             )
             print(
-                f"[SEARCH] Resolved result: "
-                f"{SearchAgent._compact_repr(resolved_result)}",
+                f"[SEARCH] Resolved result: {SearchAgent._compact_repr(resolved_result)}",
                 flush=True,
             )
 

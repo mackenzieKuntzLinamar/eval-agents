@@ -32,7 +32,9 @@ REQUIRED_COLUMNS = {
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Upload a benchmark dataset into Langfuse")
     parser.add_argument("--dataset-name", required=True, help="Name of the Langfuse dataset")
-    parser.add_argument("--input-file", required=True, help="Path to a CSV, JSON, or JSONL file containing the test cases")
+    parser.add_argument(
+        "--input-file", required=True, help="Path to a CSV, JSON, or JSONL file containing the test cases"
+    )
     parser.add_argument(
         "--description",
         default="Robot error troubleshooting Q&A dataset",

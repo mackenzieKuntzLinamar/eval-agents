@@ -10,7 +10,6 @@ import logging
 from typing import Any
 
 from configs import Configs
-
 from google.adk.tools.function_tool import FunctionTool
 from google.genai import Client, types
 

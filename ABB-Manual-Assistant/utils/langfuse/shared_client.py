@@ -1,7 +1,5 @@
 """Shared instance of langfuse client."""
 
-from os import getenv
-
 from langfuse import Langfuse
 from rich.progress import Progress, SpinnerColumn, TextColumn
 

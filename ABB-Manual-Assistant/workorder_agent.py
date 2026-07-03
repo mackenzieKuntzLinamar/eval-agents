@@ -24,9 +24,7 @@ class WorkorderAgent:
                             Only use information from the user's conversation with the ABB robot assistant agent to complete the workorder.
                             Your response should include only the created workorder and nothing else. Provide as much detail as possible.
                             """,
-            model=agents.OpenAIChatCompletionsModel(
-                model="gemini-2.5-flash", openai_client=self.client
-            ),
+            model=agents.OpenAIChatCompletionsModel(model="gemini-2.5-flash", openai_client=self.client),
             model_settings=agents.ModelSettings(temperature=0.5),
         )
 

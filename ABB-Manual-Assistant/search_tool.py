@@ -2,7 +2,6 @@ import json
 import os
 
 from dotenv import load_dotenv
-
 from utils.tools.vertex_search import vertex_search
 
 

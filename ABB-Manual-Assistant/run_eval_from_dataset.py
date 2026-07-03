@@ -5,9 +5,7 @@ from pathlib import Path
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Run evaluations against a Langfuse dataset"
-    )
+    parser = argparse.ArgumentParser(description="Run evaluations against a Langfuse dataset")
     parser.add_argument(
         "--dataset-name",
         required=True,
@@ -33,9 +31,7 @@ def main() -> None:
     run_eval_path = base_dir / "run_eval.py"
 
     if not run_eval_path.is_file():
-        raise FileNotFoundError(
-            f"Could not find run_eval.py at: {run_eval_path}"
-        )
+        raise FileNotFoundError(f"Could not find run_eval.py at: {run_eval_path}")
 
     cmd = [
         sys.executable,

@@ -26,12 +26,11 @@ from dotenv import load_dotenv
 from langfuse import get_client
 from langfuse._client.datasets import DatasetItemClient
 from openai import AsyncOpenAI
+from openinference.instrumentation.openai_agents import OpenAIAgentsInstrumentor
 from orchestrator_agent import Orchestrator
 from pydantic import BaseModel
 from rich.progress import track
-from openinference.instrumentation.openai_agents import OpenAIAgentsInstrumentor
 from utils.langfuse.shared_client import flush_langfuse, langfuse_client
-
 
 
 # Replaced the old langfuse setup
@@ -45,9 +44,7 @@ openai_api_key = os.getenv("OPENAI_API_KEY")
 openai_base_url = os.getenv("OPENAI_BASE_URL")
 
 if not openai_api_key:
-    raise RuntimeError(
-        "OPENAI_API_KEY is not set. Check your .env file or shell environment."
-    )
+    raise RuntimeError("OPENAI_API_KEY is not set. Check your .env file or shell environment.")
 
 openai_client_kwargs: dict[str, Any] = {
     "api_key": openai_api_key,
@@ -57,7 +54,6 @@ if openai_base_url:
     openai_client_kwargs["base_url"] = openai_base_url
 
 async_openai_client = AsyncOpenAI(**openai_client_kwargs)
-
 
 
 EVALUATOR_INSTRUCTIONS = """
@@ -97,7 +93,6 @@ class EvaluatorQuery(BaseModel):
 class EvaluatorResponse(BaseModel):
     explanation: str
     is_answer_correct: bool
-
 
 
 ANSWER_FIELD_NAMES = (
@@ -246,6 +241,7 @@ def merge_stream_text(current_text: str, incoming_text: str) -> str:
 
     return current_text + incoming_text
 
+
 async def consume_orchestrator_stream(stream: Any) -> str:
     """
     Consume an async generator returned by Orchestrator.run() and build its
@@ -266,7 +262,6 @@ async def consume_orchestrator_stream(stream: Any) -> str:
 
         last_event_repr = event_repr
 
-
         event_text = extract_agent_answer(event)
 
         if event_text is not None:
@@ -276,9 +271,7 @@ async def consume_orchestrator_stream(stream: Any) -> str:
             )
 
     if event_count == 0:
-        raise RuntimeError(
-            "Orchestrator.run() completed without yielding any stream events."
-        )
+        raise RuntimeError("Orchestrator.run() completed without yielding any stream events.")
 
     accumulated_answer = accumulated_answer.strip()
 
@@ -296,7 +289,6 @@ async def consume_orchestrator_stream(stream: Any) -> str:
     )
 
     return accumulated_answer
-
 
 
 async def run_agent_with_trace(
@@ -319,13 +311,11 @@ async def run_agent_with_trace(
             resolved_result = await run_result
 
             print(
-                f"Raw orchestrator result type: "
-                f"{type(resolved_result).__name__}",
+                f"Raw orchestrator result type: {type(resolved_result).__name__}",
                 flush=True,
             )
             print(
-                f"Raw orchestrator result repr: "
-                f"{compact_repr(resolved_result)}",
+                f"Raw orchestrator result repr: {compact_repr(resolved_result)}",
                 flush=True,
             )
 
@@ -340,13 +330,11 @@ async def run_agent_with_trace(
 
         else:
             print(
-                f"Raw synchronous orchestrator result type: "
-                f"{type(run_result).__name__}",
+                f"Raw synchronous orchestrator result type: {type(run_result).__name__}",
                 flush=True,
             )
             print(
-                f"Raw synchronous orchestrator result repr: "
-                f"{compact_repr(run_result)}",
+                f"Raw synchronous orchestrator result repr: {compact_repr(run_result)}",
                 flush=True,
             )
 
@@ -382,7 +370,6 @@ async def run_agent_with_trace(
         )
 
 
-
 async def run_evaluator_agent(
     evaluator_query: EvaluatorQuery,
 ) -> EvaluatorResponse:
@@ -404,25 +391,17 @@ async def run_evaluator_agent(
     return result.final_output_as(EvaluatorResponse)
 
 
-
 async def run_and_evaluate(
     run_name: str,
     orchestrator: Orchestrator,
     item: DatasetItemClient,
 ) -> tuple[LangFuseTracedResponse, EvaluatorResponse | None]:
     if not isinstance(item.input, dict) or "text" not in item.input:
-        raise ValueError(
-            "Dataset item input must be an object containing a 'text' field. "
-            f"Got: {item.input!r}"
-        )
+        raise ValueError(f"Dataset item input must be an object containing a 'text' field. Got: {item.input!r}")
 
-    if (
-        not isinstance(item.expected_output, dict)
-        or "text" not in item.expected_output
-    ):
+    if not isinstance(item.expected_output, dict) or "text" not in item.expected_output:
         raise ValueError(
-            "Dataset item expected_output must be an object containing a "
-            f"'text' field. Got: {item.expected_output!r}"
+            f"Dataset item expected_output must be an object containing a 'text' field. Got: {item.expected_output!r}"
         )
 
     query = item.input["text"]
@@ -478,11 +457,8 @@ async def run_and_evaluate(
         return traced_response, None
 
 
-
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Run ABB Manual Assistant evaluations from a Langfuse dataset."
-    )
+    parser = argparse.ArgumentParser(description="Run ABB Manual Assistant evaluations from a Langfuse dataset.")
 
     parser.add_argument(
         "--langfuse_dataset_name",
@@ -513,12 +489,10 @@ async def main() -> None:
     items = dataset.items
 
     if args.limit is not None:
-        items = items[:args.limit]
+        items = items[: args.limit]
 
     if not items:
-        raise RuntimeError(
-            f"No items found in dataset: {args.langfuse_dataset_name!r}"
-        )
+        raise RuntimeError(f"No items found in dataset: {args.langfuse_dataset_name!r}")
 
     # Sequential execution is deliberate while validating stream behavior and
     # avoids shared-Orchestrator concurrency/state issues.
@@ -550,15 +524,13 @@ async def main() -> None:
 
     if skipped_count:
         print(
-            f"\nSkipping score upload for {skipped_count} failed or incomplete "
-            "evaluation(s).",
+            f"\nSkipping score upload for {skipped_count} failed or incomplete evaluation(s).",
             flush=True,
         )
 
     if not scorable_results:
         print(
-            "No successful evaluations to score. No Langfuse scores will be "
-            "uploaded.",
+            "No successful evaluations to score. No Langfuse scores will be uploaded.",
             flush=True,
         )
     else:
