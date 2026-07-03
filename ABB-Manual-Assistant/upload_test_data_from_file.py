@@ -64,20 +64,39 @@ def load_rows(path: Path) -> pd.DataFrame:
     raise ValueError("Unsupported file type. Use .csv, .json, or .jsonl")
 
 
-def normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
+def _find_column(df: pd.DataFrame, aliases: list[str]) -> str | None:
+    for alias in aliases:
+        if alias in df.columns:
+            return alias
+    return None
+
+
+def normalize_columns(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
+    if len(df.columns) < 2:
+        raise ValueError("Input file must contain at least two columns: question and expected response.")
+
     normalized = df.copy()
-    for canonical, aliases in REQUIRED_COLUMNS.items():
-        for alias in aliases:
-            if alias in normalized.columns:
-                normalized[canonical] = normalized[alias]
-                break
-    missing = [canonical for canonical in REQUIRED_COLUMNS if canonical not in normalized.columns]
-    if missing:
-        raise ValueError(
-            "Missing required columns. Expected one of: "
-            + ", ".join(f"{canonical} ({' | '.join(REQUIRED_COLUMNS[canonical])})" for canonical in REQUIRED_COLUMNS)
-        )
-    return normalized
+
+    question_col = _find_column(normalized, REQUIRED_COLUMNS["test_prompt"])
+    answer_col = _find_column(normalized, REQUIRED_COLUMNS["expected_response"])
+
+    if question_col is None:
+        question_col = normalized.columns[0]
+    if answer_col is None:
+        if len(normalized.columns) < 2:
+            raise ValueError("Input file must contain at least two columns: question and expected response.")
+        answer_col = normalized.columns[1]
+
+    normalized["test_prompt"] = normalized[question_col]
+    normalized["expected_response"] = normalized[answer_col]
+
+    extra_columns = [
+        col
+        for col in normalized.columns
+        if col not in {question_col, answer_col, "test_prompt", "expected_response"}
+    ]
+
+    return normalized, extra_columns
 
 
 def _sanitize_value(value: Any) -> Any:
@@ -91,11 +110,6 @@ def _sanitize_value(value: Any) -> Any:
 def build_expected_output(row: pd.Series) -> dict[str, Any]:
     return {
         "text": str(row["expected_response"]),
-        "safety_considerations": _sanitize_value(row.get("safety_considerations")),
-        "expected_sources": _sanitize_value(row.get("expected_sources")),
-        "expected_trace": _sanitize_value(row.get("expected_trace")),
-        "max_total_tokens": _sanitize_value(row.get("max_total_tokens")),
-        "max_total_latency": _sanitize_value(row.get("max_total_latency")),
     }
 
 
@@ -119,25 +133,33 @@ def main() -> None:
         raise FileNotFoundError(f"Input file not found: {input_path}")
 
     df = load_rows(input_path)
-    df = normalize_columns(df)
+    df, extra_columns = normalize_columns(df)
     ensure_dataset(args.dataset_name, args.description)
 
     for idx, row in track(df.iterrows(), total=len(df), description="Uploading to Langfuse"):
-        # Prepare sanitized metadata fields (move all non-input expectations into metadata)
         metadata = {
             "source_file": str(input_path),
             "row_index": int(idx),
-            "safety_considerations": _sanitize_value(row.get("safety_considerations")),
-            "expected_sources": _sanitize_value(row.get("expected_sources")),
-            "expected_trace": _sanitize_value(row.get("expected_trace")),
-            "max_total_tokens": _sanitize_value(row.get("max_total_tokens")),
-            "max_total_latency": _sanitize_value(row.get("max_total_latency")),
         }
+
+        for col in extra_columns:
+            metadata[col] = _sanitize_value(row.get(col))
+
+        # Move other canonical expectation columns into metadata if present.
+        for canonical in [
+            "safety_considerations",
+            "expected_sources",
+            "expected_trace",
+            "max_total_tokens",
+            "max_total_latency",
+        ]:
+            if canonical in row and canonical not in extra_columns:
+                metadata[canonical] = _sanitize_value(row.get(canonical))
 
         langfuse.create_dataset_item(
             dataset_name=args.dataset_name,
             input={"text": str(row["test_prompt"])},
-            expected_output=str(row["expected_response"]),
+            expected_output=build_expected_output(row),
             metadata=metadata,
             id=f"{args.dataset_name.lower().replace(' ', '-')}-{idx:03}",
         )
