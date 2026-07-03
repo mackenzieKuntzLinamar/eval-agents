@@ -45,3 +45,14 @@ typing_extensions==4.14.1
 urllib3==2.5.0
 uvicorn==0.35.0
 validators==0.35.0
+
+# --- RAGAS evaluation (run_relevancy_eval.py, run_faithfulness_eval.py) ---
+# ragas 0.4.3 hard-imports langchain_community.chat_models.vertexai, which was
+# removed in the langchain >=1.0 line. Keep the langchain stack pinned to 0.3.x
+# so `import ragas` succeeds. These are only needed for the RAGAS eval scripts.
+ragas==0.4.3
+langchain>=0.3,<1.0
+langchain-community>=0.3,<0.4
+langchain-core>=0.3,<1.0
+langchain-openai>=0.2,<1.0
+langchain-text-splitters>=0.3,<1.0
