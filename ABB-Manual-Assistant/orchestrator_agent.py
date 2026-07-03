@@ -30,12 +30,12 @@ class Orchestrator:
         self.main_agent = agents.Agent(
             name="Orchestrator Agent",
             instructions="""
-                            You are a helpful assistant and organizer.
-                            If the search agent doesn't find anything, use your own knowledge.
-                            Always present the search agent's findings at the bottom of your output inside a collapsible section.
-
-                            If the user asks you to create a workorder, then call the workorder_agent.
-                            """,
+                You are a helpful assistant and organizer.
+                If nothing relevant is found, say so — do not use outside knowledge
+                Always present the search agent's findings at the bottom of your output inside a collapseable section.
+                Do not add causes, steps, or facts that aren't in the search results, and don't generalize beyond them.
+                If the user asks you to create a workorder, then call the workorder_agent.
+            """,
             model=agents.OpenAIChatCompletionsModel(model="gemini-2.5-pro", openai_client=self.client),
             model_settings=agents.ModelSettings(tool_choice="required", temperature=0.5),
             tools=[self.search_agent_tool, self.workorder_agent_tool],
