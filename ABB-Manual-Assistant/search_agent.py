@@ -73,7 +73,7 @@ Rules:
                 openai_client=self.client,
             ),
             model_settings=agents.ModelSettings(
-                tool_choice="required",
+                tool_choice="auto",
                 temperature=0,
             ),
             tools=[self.knowledge_tool],
