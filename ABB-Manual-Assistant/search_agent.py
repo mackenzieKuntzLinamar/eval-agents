@@ -1,5 +1,4 @@
 import inspect
-import json
 import logging
 import os
 import traceback
@@ -40,48 +39,28 @@ You are a Search Agent specialized in retrieving exact, relevant information
 from ABB robot manuals stored in a vector database.
 
 Your ONLY purpose is to:
-- Use the provided knowledge_search tool to query the database.
-- Return the most relevant technical excerpts that directly answer the query.
-- Preserve the original wording as much as possible.
-- Do not paraphrase, summarize, or add advice.
+1. Use the provided `knowledge_search` tool to query the database.
+2. Return the most relevant technical excerpts that directly answer the query.
+3. Preserve the original wording. Do not paraphrase, summarize, or add advice.
 
 Rules:
-- Always use knowledge_search.
+- Always use `knowledge_search`.
 - Do not answer from your own knowledge.
 - Do not guess or fill in missing technical details.
 - Do not include unrelated or generic text.
-- If no relevant information is found, return exactly [].
+- If no relevant information is found, return an empty list: [].
 - If the search tool fails, clearly state that retrieval failed. Do not invent
   an ABB-specific answer.
 
 Output Format:
-Return ONLY valid JSON. Do not use markdown code fences.
-
-The root value must be a JSON array.
-
-Each result object MUST include all of these fields:
-- source: string
-- url: string
-- excerpt: string
-- confidence: number
-
-Do not omit confidence.
-
-If the search tool provides confidence, preserve it.
-If the search tool does not provide confidence, set confidence to 1.0 for directly relevant results.
-
-Required example:
 [
   {
-    "source": "ABB_IRC5_Operating_Troubleshooting_Manual — Page 105",
-    "url": "projects/...",
-    "excerpt": "Relevant excerpt...",
-    "confidence": 1.0
+    "source": "<document title or section name>",
+    "url": "<clickable source URL including the page number>",
+    "excerpt": "<exact paragraph or sentence from the document>",
+    "confidence": <numeric relevance score or rank>
   }
 ]
-
-If no relevant information is found, return:
-[]
 """.strip(),
             model=agents.OpenAIChatCompletionsModel(
                 model="gemini-2.5-flash",
@@ -125,6 +104,9 @@ If no relevant information is found, return:
     async def search_knowledgebase(query: str) -> Any:
         """
         Tool function registered with the Search Agent.
+
+        This method must remain inside SearchAgent. The prior AttributeError
+        means it was not present on the class at runtime.
         """
         query = query.strip()
 
@@ -176,128 +158,20 @@ If no relevant information is found, return:
                 query,
             )
 
+            # Re-raise so the agent/tool layer receives a real failure rather
+            # than silently converting it into an empty search result.
             raise
-
-    @staticmethod
-    def _normalize_final_output(response: Any) -> str:
-        """
-        Ensure Search Agent final output matches the required JSON schema.
-
-        Required output:
-        [
-          {
-            "source": string,
-            "url": string,
-            "excerpt": string,
-            "confidence": number
-          }
-        ]
-
-        The search tool already returns confidence, but the LLM sometimes drops it
-        when producing final output. This restores confidence when missing.
-        """
-        raw_output = getattr(response, "final_output", response)
-
-        if not isinstance(raw_output, str):
-            raw_output = str(raw_output)
-
-        text = raw_output.strip()
-
-        # Remove markdown code fences if the model returns ```json ... ```
-        if text.startswith("```"):
-            lines = text.splitlines()
-
-            if lines and lines[0].strip().startswith("```"):
-                lines = lines[1:]
-
-            if lines and lines[-1].strip() == "```":
-                lines = lines[:-1]
-
-            text = "\n".join(lines).strip()
-
-        try:
-            data = json.loads(text)
-        except Exception:
-            # Keep the failure visible, but still return schema-compatible JSON.
-            return json.dumps(
-                [
-                    {
-                        "source": "",
-                        "url": "",
-                        "excerpt": text,
-                        "confidence": 0.0,
-                    }
-                ],
-                indent=2,
-                ensure_ascii=False,
-            )
-
-        if not isinstance(data, list):
-            return json.dumps(
-                [
-                    {
-                        "source": "",
-                        "url": "",
-                        "excerpt": str(data),
-                        "confidence": 0.0,
-                    }
-                ],
-                indent=2,
-                ensure_ascii=False,
-            )
-
-        normalized = []
-
-        for item in data:
-            if not isinstance(item, dict):
-                normalized.append(
-                    {
-                        "source": "",
-                        "url": "",
-                        "excerpt": str(item),
-                        "confidence": 0.0,
-                    }
-                )
-                continue
-
-            confidence = item.get("confidence", 1.0)
-
-            try:
-                confidence = float(confidence)
-            except Exception:
-                confidence = 1.0
-
-            normalized.append(
-                {
-                    "source": str(item.get("source", "")),
-                    "url": str(item.get("url", "")),
-                    "excerpt": str(item.get("excerpt", "")),
-                    "confidence": confidence,
-                }
-            )
-
-        return json.dumps(normalized, indent=2, ensure_ascii=False)
 
     async def run(self, prompt: str) -> Any:
         """
-        Preserve the original return type for compatibility with Orchestrator,
-        but normalize final_output so the Search Agent always returns the
-        required JSON schema.
+        Preserve the original return type for compatibility with Orchestrator.
+
+        Do not return response.final_output here until we inspect how
+        orchestrator_agent.py consumes SearchAgent.run().
         """
         response = await agents.Runner.run(
             self.search_agent,
             input=prompt,
         )
 
-        normalized_output = self._normalize_final_output(response)
-
-        try:
-            response.final_output = normalized_output
-            return response
-        
-        except Exception:
-            logger.warning(
-                "Failed to normalize SearchAgent final_output. "
-                "Returning original response."
-            )
-            return response
+        return response
