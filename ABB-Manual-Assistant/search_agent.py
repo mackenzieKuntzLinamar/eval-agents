@@ -1,5 +1,4 @@
 import inspect
-import json
 import logging
 import os
 import traceback
@@ -8,7 +7,6 @@ from typing import Any
 import agents
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
-from pydantic import BaseModel  # NEW — needed for the schema classes below
 
 from search_tool import VertexSearchTool
 
@@ -16,20 +14,6 @@ from search_tool import VertexSearchTool
 load_dotenv()
 
 logger = logging.getLogger(__name__)
-
-
-# NEW — these two classes define the exact shape every search result must have.
-# Once passed to output_type below, the SDK enforces this shape at decode time,
-# so the model can no longer silently drop "confidence" the way it was doing.
-class SearchResultItem(BaseModel):
-    source: str
-    url: str
-    excerpt: str
-    confidence: float
-
-
-class SearchResults(BaseModel):
-    results: list[SearchResultItem]
 
 
 class SearchAgent:
@@ -64,20 +48,29 @@ Rules:
 - Do not answer from your own knowledge.
 - Do not guess or fill in missing technical details.
 - Do not include unrelated or generic text.
-- If no relevant information is found, return an empty results list.
+- If no relevant information is found, return an empty list: [].
 - If the search tool fails, clearly state that retrieval failed. Do not invent
   an ABB-specific answer.
+
+Output Format:
+[
+  {
+    "source": "<document title or section name>",
+    "url": "<clickable source URL including the page number>",
+    "excerpt": "<exact paragraph or sentence from the document>",
+    "confidence": <numeric relevance score or rank>
+  }
+]
 """.strip(),
             model=agents.OpenAIChatCompletionsModel(
                 model="gemini-2.5-flash",
                 openai_client=self.client,
             ),
             model_settings=agents.ModelSettings(
-                tool_choice="auto",
+                tool_choice="required",
                 temperature=0,
             ),
             tools=[self.knowledge_tool],
-            output_type=SearchResults,  # NEW — this is the actual fix
         )
 
     @staticmethod
@@ -91,6 +84,14 @@ Rules:
 
     @staticmethod
     async def _resolve_knowledge_result(value: Any) -> Any:
+        """
+        Normalize whatever VertexSearchTool.get_knowledge() returns.
+
+        It may return:
+        - a regular result value,
+        - an awaitable/coroutine,
+        - or an async generator.
+        """
         if inspect.isasyncgen(value) or hasattr(value, "__aiter__"):
             return [item async for item in value]
 
@@ -101,6 +102,12 @@ Rules:
 
     @staticmethod
     async def search_knowledgebase(query: str) -> Any:
+        """
+        Tool function registered with the Search Agent.
+
+        This method must remain inside SearchAgent. The prior AttributeError
+        means it was not present on the class at runtime.
+        """
         query = query.strip()
 
         if not query:
@@ -151,31 +158,20 @@ Rules:
                 query,
             )
 
+            # Re-raise so the agent/tool layer receives a real failure rather
+            # than silently converting it into an empty search result.
             raise
 
     async def run(self, prompt: str) -> Any:
         """
         Preserve the original return type for compatibility with Orchestrator.
 
-        final_output is now a SearchResults pydantic object (because of
-        output_type above), not a JSON string. We overwrite final_output with
-        its JSON-string form so eval scripts / anything expecting a string
-        keeps working unchanged.
+        Do not return response.final_output here until we inspect how
+        orchestrator_agent.py consumes SearchAgent.run().
         """
         response = await agents.Runner.run(
             self.search_agent,
             input=prompt,
         )
-
-        final_output = getattr(response, "final_output", None)
-
-        # NEW — serialize the structured object back to the JSON array string
-        # your eval script and downstream consumers already expect.
-        if isinstance(final_output, SearchResults):
-            response.final_output = json.dumps(
-                [item.model_dump() for item in final_output.results],
-                indent=2,
-                ensure_ascii=False,
-            )
 
         return response
