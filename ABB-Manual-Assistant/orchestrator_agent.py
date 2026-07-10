@@ -27,17 +27,28 @@ class Orchestrator:
             tool_description="Given a conversation between the user and the orchestrator agent, the workorder agent will create a workorder.",
         )
 
+        self.search_agent_tool = search_agent_instance.search_agent.as_tool(
+            tool_name="search_knowledge_base",
+            tool_description="Agent searches ABB robot manuals for repair, troubleshooting, maintenance instructions, etc.",
+        )
+
         self.main_agent = agents.Agent(
             name="Orchestrator Agent",
             instructions="""
-                            You are a helpful assistant and organizer.
-                            If the search agent doesn't find anything, use your own knowledge.
-                            Always present the search agent's findings at the bottom of your output inside a collapsible section.
-
+                            You are a helpful ABB support assistant.
+                            First, decide whether the user's question could be related to ABB robots, ABB manuals, repair, troubleshooting, maintenance, or other ABB support topics.
+                            If it is clearly out of scope, respond briefly with an out-of-scope message and do not use any tools.
+                            If it is in scope, use the search tool exactly once to gather the best supporting information, then compose the final answer from those retrieved results.
+                            Synthesize the evidence into a direct diagnosis or explanation, followed by 2–4 concise troubleshooting steps if helpful.
+                            Do not simply repeat the retrieved excerpts or list raw search results as the answer.
+                            Do not call the search tool repeatedly. Only use a second search if the first result is empty or clearly insufficient.
+                            Do not ask clarifying questions unless the request is genuinely ambiguous.
+                            Do not include long preambles, repeated restatements, or unnecessary internal reasoning.
+                            When you used the search tool, present the most relevant findings at the bottom of your answer inside a short collapsible section.
                             If the user asks you to create a workorder, then call the workorder_agent.
                             """,
             model=agents.OpenAIChatCompletionsModel(model="gemini-2.5-pro", openai_client=self.client),
-            model_settings=agents.ModelSettings(tool_choice="required", temperature=0.5),
+            model_settings=agents.ModelSettings(tool_choice="auto", temperature=0.5),
             tools=[self.search_agent_tool, self.workorder_agent_tool],
         )
 

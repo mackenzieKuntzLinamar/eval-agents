@@ -18,6 +18,7 @@ class VertexSearchTool:
 
     def __init__(self, data_name: str | None = None):
         self.data_name = data_name or os.getenv("COLLECTION_NAME")
+        self.max_results = int(os.getenv("ABB_MAX_SEARCH_RESULTS", "5"))
 
     async def create_client(self):
         return None
@@ -37,14 +38,15 @@ class VertexSearchTool:
             if not sources:
                 return "No results found."
 
+            limited_sources = sources[: self.max_results]
+
             formatted_results = []
-            for src in sources:
+            for src in limited_sources:
                 formatted_results.append(
                     {
-                        "Document Name": src.get("title", ""),
-                        "URL": src.get("uri", ""),
-                        "Page Number": "",
-                        "Full Text": summary,
+                        "source": src.get("title", ""),
+                        "url": src.get("url", ""),
+                        "excerpt": summary,
                     }
                 )
 

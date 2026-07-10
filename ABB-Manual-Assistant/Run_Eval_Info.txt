@@ -3,3 +3,6 @@ python3 upload_test_data_from_file.py --dataset-name "SME Test Set" --input-file
 
 Run evaluation command:
 python3 run_eval_from_dataset.py --dataset-name "SME Test Set" --run-name "SME Eval Run"
+
+Out-of-scope evaluation command:
+python3 run_out_of_scope_eval.py
